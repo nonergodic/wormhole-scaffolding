@@ -50,7 +50,7 @@ import {
 } from "./helpers";
 import { deriveWrappedMintKey } from "@certusone/wormhole-sdk/lib/cjs/solana/tokenBridge";
 
-describe(" 2: Hello Token", () => {
+describe(" 2: Hello Token", function() {
   const connection = new web3.Connection(LOCALHOST, "processed");
   const wallet = NodeWallet.fromSecretKey(PAYER_PRIVATE_KEY);
   const relayer = NodeWallet.fromSecretKey(RELAYER_PRIVATE_KEY);
@@ -65,12 +65,19 @@ describe(" 2: Hello Token", () => {
     200
   );
 
+  const createTokenTransferPayload = () => {
+    const buf = Buffer.alloc(33);
+    buf.writeUInt8(1, 0); // payload ID
+    buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
+    return buf;
+  };
+
   // guardians
   const guardians = new mock.MockGuardians(0, [GUARDIAN_PRIVATE_KEY]);
 
-  describe("Initialize Program", () => {
-    describe("Expect Failure", () => {
-      it("Cannot Initialize With relayer_fee_precision == 0", async () => {
+  describe("Initialize Program", function() {
+    describe("Expect Failure", function() {
+      it("Cannot Initialize With relayer_fee_precision == 0", async function() {
         const relayerFee = 0;
         const relayerFeePrecision = 0;
         expect(relayerFeePrecision).to.equal(0);
@@ -98,7 +105,7 @@ describe(" 2: Hello Token", () => {
         expect(initializeTx).is.null;
       });
 
-      it("Cannot Initialize With relayer_fee > relayer_fee_precision", async () => {
+      it("Cannot Initialize With relayer_fee > relayer_fee_precision", async function() {
         const relayerFee = 100_000_000;
         const relayerFeePrecision = 1_000_000;
         expect(relayerFee).is.greaterThan(relayerFeePrecision);
@@ -127,8 +134,8 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Set Up Program", () => {
-      it("Instruction: initialize", async () => {
+    describe("Finally Set Up Program", function() {
+      it("Instruction: initialize", async function() {
         // we are configuring the relayer fee to be 1%, so that means the
         // relayer fee precision must be 100x the relayer fee.
         // Note: This will be overwritten later when update_relayer_fee
@@ -233,7 +240,7 @@ describe(" 2: Hello Token", () => {
         ).is.true;
       });
 
-      it("Cannot Call Instruction Again: initialize", async () => {
+      it("Cannot Call Instruction Again: initialize", async function() {
         const initializeTx = await createInitializeInstruction(
           connection,
           HELLO_TOKEN_ADDRESS,
@@ -259,9 +266,9 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Update Relayer Fee", () => {
-    describe("Expect Failure", () => {
-      it("Cannot Update as Non-Owner", async () => {
+  describe("Update Relayer Fee", function() {
+    describe("Expect Failure", function() {
+      it("Cannot Update as Non-Owner", async function() {
         const relayerFee = 69;
         const relayerFeePrecision = 420;
 
@@ -286,7 +293,7 @@ describe(" 2: Hello Token", () => {
         expect(updateRelayerFeeTx).is.null;
       });
 
-      it("Cannot Update With relayer_fee_precision == 0", async () => {
+      it("Cannot Update With relayer_fee_precision == 0", async function() {
         const relayerFee = 0;
         const relayerFeePrecision = 0;
         expect(relayerFeePrecision).to.equal(0);
@@ -312,7 +319,7 @@ describe(" 2: Hello Token", () => {
         expect(updateRelayerFeeTx).is.null;
       });
 
-      it("Cannot Update With relayer_fee > relayer_fee_precision", async () => {
+      it("Cannot Update With relayer_fee > relayer_fee_precision", async function() {
         const relayerFee = 100_000_000;
         const relayerFeePrecision = 1_000_000;
         expect(relayerFee).is.greaterThan(relayerFeePrecision);
@@ -338,8 +345,8 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Update Relayer Fee", () => {
-      it("Instruction: update_relayer_fee", async () => {
+    describe("Finally Update Relayer Fee", function() {
+      it("Instruction: update_relayer_fee", async function() {
         // we are configuring the relayer fee to be 0.1%, so that means the
         // relayer fee precision must be 1000x the relayer fee
         const relayerFee = 100_000;
@@ -377,9 +384,9 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Register Foreign Emitter", () => {
-    describe("Expect Failure", () => {
-      it("Cannot Update as Non-Owner", async () => {
+  describe("Register Foreign Emitter", function() {
+    describe("Expect Failure", function() {
+      it("Cannot Update as Non-Owner", async function() {
         const chain = foreignChain;
         const contractAddress = Buffer.alloc(32, "fbadc0de", "hex");
 
@@ -407,7 +414,7 @@ describe(" 2: Hello Token", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Chain ID == 0", async () => {
+      it("Cannot Register Chain ID == 0", async function() {
         const bogusChain = 0;
         const registerForeignEmitterTx = await createHelloTokenProgramInterface(
           connection,
@@ -445,7 +452,7 @@ describe(" 2: Hello Token", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Chain ID == 1", async () => {
+      it("Cannot Register Chain ID == 1", async function() {
         const bogusChain = 1;
         const registerForeignEmitterTx = await createHelloTokenProgramInterface(
           connection,
@@ -483,7 +490,7 @@ describe(" 2: Hello Token", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Zero Address", async () => {
+      it("Cannot Register Zero Address", async function() {
         const registerForeignEmitterTx =
           await createRegisterForeignContractInstruction(
             connection,
@@ -509,7 +516,7 @@ describe(" 2: Hello Token", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Contract Address Length != 32", async () => {
+      it("Cannot Register Contract Address Length != 32", async function() {
         const registerForeignEmitterTx =
           await createRegisterForeignContractInstruction(
             connection,
@@ -536,8 +543,8 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Register Foreign Contract", () => {
-      it("Instruction: register_foreign_contract", async () => {
+    describe("Finally Register Foreign Contract", function() {
+      it("Instruction: register_foreign_contract", async function() {
         const chain = foreignChain;
         const contractAddress = Buffer.alloc(32, "fbadc0de", "hex");
 
@@ -577,7 +584,7 @@ describe(" 2: Hello Token", () => {
         ).to.equal(0);
       });
 
-      it("Call Instruction Again With Different Contract Address", async () => {
+      it("Call Instruction Again With Different Contract Address", async function() {
         const chain = foreignChain;
         const contractAddress = foreignContractAddress;
 
@@ -619,9 +626,9 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Send Native Tokens (decimals=9) With Payload", () => {
-    describe("Expect Failure", () => {
-      it("Cannot Send To Unregistered Foreign Contract", async () => {
+  describe("Send Native Tokens (decimals=9) With Payload", function() {
+    describe("Expect Failure", function() {
+      it("Cannot Send To Unregistered Foreign Contract", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -654,7 +661,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send Amount Less Than Bridgeable", async () => {
+      it("Cannot Send Amount Less Than Bridgeable", async function() {
         const batchId = 69;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
         const recipientChain = 2;
@@ -686,7 +693,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Chain ID == 0", async () => {
+      it("Cannot Send To Chain ID == 0", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -723,7 +730,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Chain ID == 1", async () => {
+      it("Cannot Send To Chain ID == 1", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -760,7 +767,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Zero Address", async () => {
+      it("Cannot Send To Zero Address", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientChain = 2;
@@ -793,8 +800,8 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Send Tokens With Payload", () => {
-      it("Instruction: send_native_tokens_with_payload", async () => {
+    describe("Finally Send Tokens With Payload", function() {
+      it("Instruction: send_native_tokens_with_payload", async function() {
         const tokenAccount = getAssociatedTokenAddressSync(
           MINT_WITH_DECIMALS_9,
           wallet.key()
@@ -888,7 +895,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Native Tokens (decimals=9) With Payload (payer == recipient)", () => {
+  describe("Receive Native Tokens (decimals=9) With Payload (payer == recipient)", function() {
     const tokenAccount = getAssociatedTokenAddressSync(
       MINT_WITH_DECIMALS_9,
       wallet.key()
@@ -896,15 +903,10 @@ describe(" 2: Hello Token", () => {
 
     const tokenAddress = MINT_WITH_DECIMALS_9.toBuffer().toString("hex");
     const amount = 42060n;
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Expect Failure", () => {
+    describe("Expect Failure", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -919,7 +921,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           wallet.signTransaction,
@@ -930,7 +932,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem From Unregistered Foreign Contract", async () => {
+      it("Cannot Redeem From Unregistered Foreign Contract", async function() {
         const redeemTransferTx =
           await createRedeemNativeTransferWithPayloadInstruction(
             connection,
@@ -956,7 +958,7 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -971,7 +973,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           wallet.signTransaction,
@@ -982,7 +984,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem With Bogus Token Account", async () => {
+      it("Cannot Redeem With Bogus Token Account", async function() {
         const bogusTokenAccount = getAssociatedTokenAddressSync(
           MINT_WITH_DECIMALS_9,
           relayer.key()
@@ -1045,7 +1047,7 @@ describe(" 2: Hello Token", () => {
         expect(redeemTransferTx).is.null;
       });
 
-      it("Instruction: redeem_native_transfer_with_payload", async () => {
+      it("Instruction: redeem_native_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -1095,7 +1097,7 @@ describe(" 2: Hello Token", () => {
         expect(tmpTokenAccount).is.null;
       });
 
-      it("Cannot Redeem Transfer Again", async () => {
+      it("Cannot Redeem Transfer Again", async function() {
         const redeemTransferTx =
           await createRedeemNativeTransferWithPayloadInstruction(
             connection,
@@ -1121,7 +1123,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Native Tokens (decimals=9) With Payload (payer != recipient)", () => {
+  describe("Receive Native Tokens (decimals=9) With Payload (payer != recipient)", function() {
     const recipientTokenAccount = getAssociatedTokenAddressSync(
       MINT_WITH_DECIMALS_9,
       wallet.key()
@@ -1133,15 +1135,10 @@ describe(" 2: Hello Token", () => {
 
     const tokenAddress = MINT_WITH_DECIMALS_9.toBuffer().toString("hex");
     const amount = 42060n;
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Expect Failure", () => {
+    describe("Expect Failure", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -1156,7 +1153,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -1167,7 +1164,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem From Unregistered Foreign Contract", async () => {
+      it("Cannot Redeem From Unregistered Foreign Contract", async function() {
         const redeemTransferTx =
           await createRedeemNativeTransferWithPayloadInstruction(
             connection,
@@ -1193,7 +1190,7 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -1208,7 +1205,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -1219,7 +1216,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem With Bogus Token Account", async () => {
+      it("Cannot Redeem With Bogus Token Account", async function() {
         const bogusTokenAccount = getAssociatedTokenAddressSync(
           MINT_WITH_DECIMALS_9,
           relayer.key()
@@ -1289,7 +1286,7 @@ describe(" 2: Hello Token", () => {
         expect(redeemTransferTx).is.null;
       });
 
-      it("Instruction: redeem_native_transfer_with_payload", async () => {
+      it("Instruction: redeem_native_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -1358,7 +1355,7 @@ describe(" 2: Hello Token", () => {
         expect(tmpTokenAccount).is.null;
       });
 
-      it("Cannot Redeem Transfer Again", async () => {
+      it("Cannot Redeem Transfer Again", async function() {
         const redeemTransferTx =
           await createRedeemNativeTransferWithPayloadInstruction(
             connection,
@@ -1384,9 +1381,9 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Send Native Tokens (decimals=8) With Payload", () => {
-    describe("Finally Send Tokens With Payload", () => {
-      it("Instruction: send_native_tokens_with_payload", async () => {
+  describe("Send Native Tokens (decimals=8) With Payload", function() {
+    describe("Finally Send Tokens With Payload", function() {
+      it("Instruction: send_native_tokens_with_payload", async function() {
         const tokenAccount = getAssociatedTokenAddressSync(
           MINT_WITH_DECIMALS_8,
           wallet.key()
@@ -1478,7 +1475,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Native Tokens (decimals=8) With Payload (payer == recipient)", () => {
+  describe("Receive Native Tokens (decimals=8) With Payload (payer == recipient)", function() {
     const tokenAccount = getAssociatedTokenAddressSync(
       MINT_WITH_DECIMALS_8,
       wallet.key()
@@ -1486,15 +1483,10 @@ describe(" 2: Hello Token", () => {
 
     const tokenAddress = MINT_WITH_DECIMALS_8.toBuffer().toString("hex");
     const amount = 42069n;
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -1509,7 +1501,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           wallet.signTransaction,
@@ -1520,7 +1512,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Instruction: redeem_native_transfer_with_payload", async () => {
+      it("Instruction: redeem_native_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -1572,7 +1564,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Native Tokens (decimals=8) With Payload (payer != recipient)", () => {
+  describe("Receive Native Tokens (decimals=8) With Payload (payer != recipient)", function() {
     const recipientTokenAccount = getAssociatedTokenAddressSync(
       MINT_WITH_DECIMALS_8,
       wallet.key()
@@ -1584,15 +1576,10 @@ describe(" 2: Hello Token", () => {
 
     const tokenAddress = MINT_WITH_DECIMALS_8.toBuffer().toString("hex");
     const amount = 42069n;
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         1, // tokenChain
@@ -1607,7 +1594,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -1618,7 +1605,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Instruction: redeem_native_transfer_with_payload", async () => {
+      it("Instruction: redeem_native_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -1689,15 +1676,15 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Send Wrapped Tokens With Payload", () => {
+  describe("Send Wrapped Tokens With Payload", function() {
     const tokenBridgeWethMint = deriveWrappedMintKey(
       TOKEN_BRIDGE_ADDRESS,
       2,
       WETH_ADDRESS
     );
 
-    describe("Expect Failure", () => {
-      it("Cannot Send To Unregistered Foreign Contract", async () => {
+    describe("Expect Failure", function() {
+      it("Cannot Send To Unregistered Foreign Contract", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -1731,7 +1718,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Chain ID == 0", async () => {
+      it("Cannot Send To Chain ID == 0", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -1764,7 +1751,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Chain ID == 1", async () => {
+      it("Cannot Send To Chain ID == 1", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
@@ -1797,7 +1784,7 @@ describe(" 2: Hello Token", () => {
         expect(sendTokensTx).is.null;
       });
 
-      it("Cannot Send To Zero Address", async () => {
+      it("Cannot Send To Zero Address", async function() {
         const batchId = 69;
         const amount = 42069n;
         const recipientChain = 2;
@@ -1831,8 +1818,8 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Send Tokens With Payload", () => {
-      it("Instruction: send_wrapped_tokens_with_payload", async () => {
+    describe("Finally Send Tokens With Payload", function() {
+      it("Instruction: send_wrapped_tokens_with_payload", async function() {
         const tokenAccount = getAssociatedTokenAddressSync(
           tokenBridgeWethMint,
           wallet.key()
@@ -1925,7 +1912,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Wrapped Tokens With Payload (payer == recipient)", () => {
+  describe("Receive Wrapped Tokens With Payload (payer == recipient)", function() {
     const tokenChain = 2;
     const tokenBridgeWethMint = deriveWrappedMintKey(
       TOKEN_BRIDGE_ADDRESS,
@@ -1940,15 +1927,10 @@ describe(" 2: Hello Token", () => {
     const tokenAddress = tryNativeToHexString(WETH_ADDRESS, "ethereum");
     const rawAmount = 420_690_000_000_000n;
     const amount = rawAmount / 10n ** (18n - 8n);
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Expect Failure", () => {
+    describe("Expect Failure", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         tokenChain,
@@ -1963,7 +1945,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -1974,7 +1956,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem From Unregistered Foreign Contract", async () => {
+      it("Cannot Redeem From Unregistered Foreign Contract", async function() {
         const redeemTransferTx =
           await createRedeemWrappedTransferWithPayloadInstruction(
             connection,
@@ -1999,7 +1981,7 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         tokenChain,
@@ -2014,7 +1996,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           wallet.signTransaction,
@@ -2025,7 +2007,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem With Bogus Token Account", async () => {
+      it("Cannot Redeem With Bogus Token Account", async function() {
         const bogusTokenAccount = getAssociatedTokenAddressSync(
           tokenBridgeWethMint,
           relayer.key()
@@ -2091,7 +2073,7 @@ describe(" 2: Hello Token", () => {
         expect(redeemTransferTx).is.null;
       });
 
-      it("Instruction: redeem_wrapped_transfer_with_payload", async () => {
+      it("Instruction: redeem_wrapped_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -2141,7 +2123,7 @@ describe(" 2: Hello Token", () => {
         expect(tmpTokenAccount).is.null;
       });
 
-      it("Cannot Redeem Transfer Again", async () => {
+      it("Cannot Redeem Transfer Again", async function() {
         const redeemTransferTx =
           await createRedeemNativeTransferWithPayloadInstruction(
             connection,
@@ -2167,7 +2149,7 @@ describe(" 2: Hello Token", () => {
     });
   });
 
-  describe("Receive Wrapped Tokens With Payload (payer != recipient)", () => {
+  describe("Receive Wrapped Tokens With Payload (payer != recipient)", function() {
     const tokenChain = 2;
     const tokenBridgeWethMint = deriveWrappedMintKey(
       TOKEN_BRIDGE_ADDRESS,
@@ -2186,15 +2168,10 @@ describe(" 2: Hello Token", () => {
     const tokenAddress = tryNativeToHexString(WETH_ADDRESS, "ethereum");
     const rawAmount = 420_690_000_000_000n;
     const amount = rawAmount / 10n ** (18n - 8n);
-    const tokenTransferPayload = (() => {
-      const buf = Buffer.alloc(33);
-      buf.writeUInt8(1, 0); // payload ID
-      buf.write(wallet.key().toBuffer().toString("hex"), 1, "hex");
-      return buf;
-    })();
+    const tokenTransferPayload = createTokenTransferPayload();
     const batchId = 69;
 
-    describe("Expect Failure", () => {
+    describe("Expect Failure", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         tokenChain,
@@ -2209,7 +2186,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -2220,7 +2197,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem From Unregistered Foreign Contract", async () => {
+      it("Cannot Redeem From Unregistered Foreign Contract", async function() {
         const redeemTransferTx =
           await createRedeemWrappedTransferWithPayloadInstruction(
             connection,
@@ -2245,7 +2222,7 @@ describe(" 2: Hello Token", () => {
       });
     });
 
-    describe("Finally Receive Tokens With Payload", () => {
+    describe("Finally Receive Tokens With Payload", function() {
       const published = ethereumTokenBridge.publishTransferTokensWithPayload(
         tokenAddress,
         tokenChain,
@@ -2260,7 +2237,7 @@ describe(" 2: Hello Token", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           relayer.signTransaction,
@@ -2271,7 +2248,7 @@ describe(" 2: Hello Token", () => {
         expect(response).is.not.null;
       });
 
-      it("Cannot Redeem With Bogus Token Account", async () => {
+      it("Cannot Redeem With Bogus Token Account", async function() {
         const bogusTokenAccount = getAssociatedTokenAddressSync(
           tokenBridgeWethMint,
           relayer.key()
@@ -2345,7 +2322,7 @@ describe(" 2: Hello Token", () => {
         expect(redeemTransferTx).is.null;
       });
 
-      it("Instruction: redeem_wrapped_transfer_with_payload", async () => {
+      it("Instruction: redeem_wrapped_transfer_with_payload", async function() {
         // will be used for balance change later
         const walletBalanceBefore = await getAccount(
           connection,
@@ -2414,7 +2391,7 @@ describe(" 2: Hello Token", () => {
         expect(tmpTokenAccount).is.null;
       });
 
-      it("Cannot Redeem Transfer Again", async () => {
+      it("Cannot Redeem Transfer Again", async function() {
         const redeemTransferTx =
           await createRedeemWrappedTransferWithPayloadInstruction(
             connection,

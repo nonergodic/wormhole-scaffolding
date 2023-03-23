@@ -32,7 +32,7 @@ import {
   errorExistsInLog,
 } from "./helpers";
 
-describe(" 1: Hello World", () => {
+describe(" 1: Hello World", function() {
   const connection = new web3.Connection(LOCALHOST, "processed");
   const wallet = NodeWallet.fromSecretKey(PAYER_PRIVATE_KEY);
 
@@ -53,8 +53,8 @@ describe(" 1: Hello World", () => {
     foreignEmitterChain
   );
 
-  describe("Initialize Program", () => {
-    describe("Fuzz Test Invalid Accounts for Instruction: initialize", () => {
+  describe("Initialize Program", function() {
+    describe("Fuzz Test Invalid Accounts for Instruction: initialize", function() {
       // program interface
       const program = createHelloWorldProgramInterface(
         connection,
@@ -68,7 +68,7 @@ describe(" 1: Hello World", () => {
         deriveAddress([Buffer.from("alive")], HELLO_WORLD_ADDRESS)
       );
 
-      it("Invalid Account PDA: config", async () => {
+      it("Invalid Account PDA: config", async function() {
         const possibleConfigs: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -122,7 +122,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: wormhole_program", async () => {
+      it("Invalid Account PDA: wormhole_program", async function() {
         const wormholeProgram = web3.Ed25519Program.programId;
 
         const initializeTx = await program.methods
@@ -154,7 +154,7 @@ describe(" 1: Hello World", () => {
         expect(initializeTx).is.null;
       });
 
-      it("Invalid Account PDA: wormhole_bridge", async () => {
+      it("Invalid Account PDA: wormhole_bridge", async function() {
         const possibleWormholeBridges: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -205,7 +205,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: wormhole_fee_collector", async () => {
+      it("Invalid Account PDA: wormhole_fee_collector", async function() {
         const possibleWormholeFeeCollectors: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -258,7 +258,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: wormhole_emitter", async () => {
+      it("Invalid Account PDA: wormhole_emitter", async function() {
         const possibleWormholeEmitters: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -314,7 +314,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: wormhole_sequence", async () => {
+      it("Invalid Account PDA: wormhole_sequence", async function() {
         const possibleWormholeSequences: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -377,8 +377,8 @@ describe(" 1: Hello World", () => {
       });
     });
 
-    describe("Finally Set Up Program", () => {
-      it("Instruction: initialize", async () => {
+    describe("Finally Set Up Program", function() {
+      it("Instruction: initialize", async function() {
         const initializeTx = await createInitializeInstruction(
           connection,
           HELLO_WORLD_ADDRESS,
@@ -416,7 +416,7 @@ describe(" 1: Hello World", () => {
         ).is.true;
       });
 
-      it("Cannot Call Instruction Again: initialize", async () => {
+      it("Cannot Call Instruction Again: initialize", async function() {
         const initializeTx = await createInitializeInstruction(
           connection,
           HELLO_WORLD_ADDRESS,
@@ -439,8 +439,8 @@ describe(" 1: Hello World", () => {
     });
   });
 
-  describe("Register Foreign Emitter", () => {
-    describe("Fuzz Test Invalid Accounts for Instruction: register_emitter", () => {
+  describe("Register Foreign Emitter", function() {
+    describe("Fuzz Test Invalid Accounts for Instruction: register_emitter", function() {
       // program interface
       const program = createHelloWorldProgramInterface(
         connection,
@@ -450,7 +450,7 @@ describe(" 1: Hello World", () => {
       const emitterChain = foreignEmitterChain;
       const emitterAddress = foreignEmitterAddress;
 
-      it("Invalid Account PDA: owner", async () => {
+      it("Invalid Account PDA: owner", async function() {
         const nonOwners = [];
 
         for (let i = 0; i < FUZZ_TEST_ITERATIONS; ++i) {
@@ -492,7 +492,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: config", async () => {
+      it("Invalid Account PDA: config", async function() {
         const possibleConfigs: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -539,7 +539,7 @@ describe(" 1: Hello World", () => {
         }
       });
 
-      it("Invalid Account PDA: foreign_emitter", async () => {
+      it("Invalid Account PDA: foreign_emitter", async function() {
         const possibleForeignEmitters: web3.PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
@@ -549,7 +549,7 @@ describe(" 1: Hello World", () => {
               web3.PublicKey.createProgramAddressSync(
                 [
                   Buffer.from("foreign_emitter"),
-                  (() => {
+                  (function() {
                     const buf = Buffer.alloc(2);
                     buf.writeUInt16LE(foreignEmitterChain);
                     return buf;
@@ -597,11 +597,11 @@ describe(" 1: Hello World", () => {
       });
     });
 
-    describe("Expect Failure", () => {
+    describe("Expect Failure", function() {
       const emitterChain = foreignEmitterChain;
       const emitterAddress = foreignEmitterAddress;
 
-      it("Cannot Register Emitter With Conflicting Chain ID", async () => {
+      it("Cannot Register Emitter With Conflicting Chain ID", async function() {
         // program interface
         const program = createHelloWorldProgramInterface(
           connection,
@@ -637,7 +637,7 @@ describe(" 1: Hello World", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Chain ID == 0", async () => {
+      it("Cannot Register Chain ID == 0", async function() {
         const registerForeignEmitterTx =
           await createRegisterForeignEmitterInstruction(
             connection,
@@ -660,7 +660,7 @@ describe(" 1: Hello World", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Chain ID == 1", async () => {
+      it("Cannot Register Chain ID == 1", async function() {
         const registerForeignEmitterTx =
           await createRegisterForeignEmitterInstruction(
             connection,
@@ -683,7 +683,7 @@ describe(" 1: Hello World", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Zero Address", async () => {
+      it("Cannot Register Zero Address", async function() {
         const registerForeignEmitterTx =
           await createRegisterForeignEmitterInstruction(
             connection,
@@ -706,7 +706,7 @@ describe(" 1: Hello World", () => {
         expect(registerForeignEmitterTx).is.null;
       });
 
-      it("Cannot Register Emitter Address Length != 32", async () => {
+      it("Cannot Register Emitter Address Length != 32", async function() {
         const bogusEmitterAddress = Buffer.alloc(20, "deadbeef", "hex");
         const registerForeignEmitterTx =
           await createRegisterForeignEmitterInstruction(
@@ -736,8 +736,8 @@ describe(" 1: Hello World", () => {
       });
     });
 
-    describe("Finally Register Foreign Emitter", () => {
-      it("Instruction: register_emitter", async () => {
+    describe("Finally Register Foreign Emitter", function() {
+      it("Instruction: register_emitter", async function() {
         const emitterChain = foreignEmitterChain;
         const emitterAddress = Buffer.alloc(32, "fbadc0de", "hex");
 
@@ -775,7 +775,7 @@ describe(" 1: Hello World", () => {
         ).to.equal(0);
       });
 
-      it("Call Instruction Again With Different Emitter Address", async () => {
+      it("Call Instruction Again With Different Emitter Address", async function() {
         const emitterChain = foreignEmitterChain;
         const emitterAddress = foreignEmitterAddress;
 
@@ -815,9 +815,9 @@ describe(" 1: Hello World", () => {
     });
   });
 
-  describe("Send Message", () => {
-    describe("Expect Failure", () => {
-      it("Cannot Send Message With Length > 512", async () => {
+  describe("Send Message", function() {
+    describe("Expect Failure", function() {
+      it("Cannot Send Message With Length > 512", async function() {
         const helloMessage = Buffer.alloc(
           513,
           "All your base are belong to us"
@@ -847,10 +847,10 @@ describe(" 1: Hello World", () => {
       });
     });
 
-    describe("Finally Send Message", () => {
+    describe("Finally Send Message", function() {
       const helloMessage = Buffer.from("All your base are belong to us");
 
-      it("Instruction: send_message", async () => {
+      it("Instruction: send_message", async function() {
         // save message count to grab posted message later
         const sequence = await wormhole
           .getProgramSequenceTracker(
@@ -896,7 +896,7 @@ describe(" 1: Hello World", () => {
     });
   });
 
-  describe("Receive Message", () => {
+  describe("Receive Message", function() {
     const emitter = new mock.MockEmitter(
       foreignEmitterAddress.toString("hex"),
       foreignEmitterChain
@@ -906,15 +906,15 @@ describe(" 1: Hello World", () => {
     const finality = 1;
     const batchId = 0;
 
-    describe("Expect Failure", () => {
-      it("Cannot Receive Message With Unregistered Emitter", async () => {
+    describe("Expect Failure", function() {
+      it("Cannot Receive Message With Unregistered Emitter", async function() {
         const bogusEmitter = new mock.MockEmitter(
           Buffer.alloc(32, "deafbeef").toString("hex"),
           foreignEmitterChain
         );
 
         const message = Buffer.from("Somebody set up us the bomb");
-        const wormholePayload = (() => {
+        const wormholePayload = (function() {
           const buf = Buffer.alloc(3 + message.length);
           buf.writeUint8(1, 0);
           buf.writeUint16BE(message.length, 1);
@@ -960,9 +960,9 @@ describe(" 1: Hello World", () => {
         expect(receiveMessageTx).is.null;
       });
 
-      it("Cannot Receive Message With Invalid Payload ID", async () => {
+      it("Cannot Receive Message With Invalid Payload ID", async function() {
         const message = Buffer.from("Somebody set up us the bomb");
-        const wormholePayload = (() => {
+        const wormholePayload = (function() {
           const buf = Buffer.alloc(3 + message.length);
           buf.writeUint8(
             2, // payload ID
@@ -1012,8 +1012,8 @@ describe(" 1: Hello World", () => {
         expect(receiveMessageTx).is.null;
       });
 
-      it("Cannot Receive Message With Payload ID == 0 (Alive)", async () => {
-        const wormholePayload = (() => {
+      it("Cannot Receive Message With Payload ID == 0 (Alive)", async function() {
+        const wormholePayload = (function() {
           const buf = Buffer.alloc(33);
           buf.writeUint8(
             0, // payload ID
@@ -1061,9 +1061,9 @@ describe(" 1: Hello World", () => {
         expect(receiveMessageTx).is.null;
       });
 
-      it("Cannot Receive Message With Length > 512", async () => {
+      it("Cannot Receive Message With Length > 512", async function() {
         const message = Buffer.alloc(513, "Somebody set up us the bomb");
-        const wormholePayload = (() => {
+        const wormholePayload = (function() {
           const buf = Buffer.alloc(3 + message.length);
           buf.writeUint8(1, 0);
           buf.writeUint16BE(message.length, 1);
@@ -1112,9 +1112,9 @@ describe(" 1: Hello World", () => {
       });
     });
 
-    describe("Finally Receive Message", () => {
+    describe("Finally Receive Message", function() {
       const message = Buffer.from("Somebody set up us the bomb");
-      const wormholePayload = (() => {
+      const wormholePayload = (function() {
         const buf = Buffer.alloc(3 + message.length);
         buf.writeUint8(1, 0);
         buf.writeUint16BE(message.length, 1);
@@ -1130,7 +1130,7 @@ describe(" 1: Hello World", () => {
 
       const signedWormholeMessage = guardians.addSignatures(published, [0]);
 
-      it("Post Wormhole Message", async () => {
+      it("Post Wormhole Message", async function() {
         const response = await postVaaSolana(
           connection,
           wallet.signTransaction,
@@ -1141,7 +1141,7 @@ describe(" 1: Hello World", () => {
         expect(response).is.not.null;
       });
 
-      it("Instruction: receive_message", async () => {
+      it("Instruction: receive_message", async function() {
         const receiveMessageTx = await createReceiveMessageInstruction(
           connection,
           HELLO_WORLD_ADDRESS,
@@ -1174,7 +1174,7 @@ describe(" 1: Hello World", () => {
         expect(Buffer.compare(received.message, message)).to.equal(0);
       });
 
-      it("Cannot Call Instruction Again With Same Wormhole Message: receive_message", async () => {
+      it("Cannot Call Instruction Again With Same Wormhole Message: receive_message", async function() {
         const receiveMessageTx = await createReceiveMessageInstruction(
           connection,
           HELLO_WORLD_ADDRESS,
