@@ -30,7 +30,7 @@ impl AnchorSerialize for HelloWorldMessage {
                 if message.len() > HELLO_MESSAGE_MAX_LENGTH {
                     Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
-                        format!("message exceeds {} bytes", HELLO_MESSAGE_MAX_LENGTH),
+                        format!("message exceeds {HELLO_MESSAGE_MAX_LENGTH} bytes"),
                     ))
                 } else {
                     PAYLOAD_ID_HELLO.serialize(writer)?;
@@ -60,7 +60,7 @@ impl AnchorDeserialize for HelloWorldMessage {
                 if length > HELLO_MESSAGE_MAX_LENGTH {
                     Err(io::Error::new(
                         io::ErrorKind::InvalidInput,
-                        format!("message exceeds {} bytes", HELLO_MESSAGE_MAX_LENGTH),
+                        format!("message exceeds {HELLO_MESSAGE_MAX_LENGTH} bytes"),
                     ))
                 } else {
                     Ok(HelloWorldMessage::Hello {
