@@ -1,21 +1,21 @@
-import { PublicKey } from "@solana/web3.js";
+import { PublicKey, Keypair } from "@solana/web3.js";
 
 // rpc
 export const LOCALHOST = "http://localhost:8899";
 
 // wallet
-export const PAYER_PRIVATE_KEY = Uint8Array.from([
+export const PAYER_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from([
   232, 33, 124, 16, 208, 115, 111, 65, 155, 7, 36, 225, 29, 33, 239, 179, 255,
   29, 24, 173, 5, 59, 132, 255, 248, 85, 146, 109, 119, 235, 135, 96, 194, 145,
   178, 87, 185, 99, 164, 121, 187, 197, 165, 106, 166, 82, 84, 148, 166, 215, 8,
   230, 40, 255, 42, 214, 28, 134, 121, 201, 157, 42, 252, 165,
-]);
-export const RELAYER_PRIVATE_KEY = Uint8Array.from([
+]));
+export const RELAYER_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from([
   209, 193, 148, 98, 190, 29, 112, 141, 167, 133, 181, 253, 103, 0, 148, 205,
   111, 214, 146, 194, 94, 126, 194, 28, 188, 221, 72, 105, 190, 41, 91, 39, 237,
   124, 31, 221, 91, 218, 22, 33, 230, 41, 14, 203, 176, 164, 200, 245, 31, 19,
   161, 61, 30, 188, 11, 120, 155, 236, 178, 241, 114, 240, 67, 3,
-]);
+]));
 
 // wormhole
 export const WORMHOLE_ADDRESS = new PublicKey(

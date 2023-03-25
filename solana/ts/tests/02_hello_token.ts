@@ -39,12 +39,12 @@ import {
   HELLO_TOKEN_ADDRESS,
   LOCALHOST,
   MINT_WITH_DECIMALS_9,
-  PAYER_PRIVATE_KEY,
+  PAYER_KEYPAIR,
   TOKEN_BRIDGE_ADDRESS,
   WORMHOLE_ADDRESS,
   deriveMaliciousTokenBridgeEndpointKey,
   errorExistsInLog,
-  RELAYER_PRIVATE_KEY,
+  RELAYER_KEYPAIR,
   WETH_ADDRESS,
   MINT_WITH_DECIMALS_8,
 } from "./helpers";
@@ -52,8 +52,8 @@ import { deriveWrappedMintKey } from "@certusone/wormhole-sdk/lib/cjs/solana/tok
 
 describe(" 2: Hello Token", function() {
   const connection = new web3.Connection(LOCALHOST, "processed");
-  const wallet = NodeWallet.fromSecretKey(PAYER_PRIVATE_KEY);
-  const relayer = NodeWallet.fromSecretKey(RELAYER_PRIVATE_KEY);
+  const wallet = NodeWallet.fromSecretKey(PAYER_KEYPAIR.secretKey);
+  const relayer = NodeWallet.fromSecretKey(RELAYER_KEYPAIR.secretKey);
 
   // foreign contract info
   const foreignChain = 2;

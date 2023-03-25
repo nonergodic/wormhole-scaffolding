@@ -1,5 +1,15 @@
-import { expect } from "chai";
-import * as web3 from "@solana/web3.js";
+import { expect, use as chaiUse } from "chai";
+import chaiAsPromised from 'chai-as-promised';
+chaiUse(chaiAsPromised);
+import {
+  Connection,
+  sendAndConfirmTransaction,
+  Transaction,
+  Keypair,
+  PublicKey,
+  Ed25519Program,
+  LAMPORTS_PER_SOL,
+} from "@solana/web3.js";
 import {
   deriveAddress,
   getPostMessageCpiAccounts,
@@ -27,14 +37,19 @@ import {
   GUARDIAN_PRIVATE_KEY,
   HELLO_WORLD_ADDRESS,
   LOCALHOST,
-  PAYER_PRIVATE_KEY,
+  PAYER_KEYPAIR,
   WORMHOLE_ADDRESS,
   errorExistsInLog,
+  boilerPlateReduction,
 } from "./helpers";
 
+
 describe(" 1: Hello World", function() {
-  const connection = new web3.Connection(LOCALHOST, "processed");
-  const wallet = NodeWallet.fromSecretKey(PAYER_PRIVATE_KEY);
+  const connection = new Connection(LOCALHOST, "processed");
+  const wallet = NodeWallet.fromSecretKey(PAYER_KEYPAIR.secretKey);
+
+  const { sendAndConfirmIx, expectIxToFailWithError } =
+    boilerPlateReduction(connection, wallet.signer());
 
   // foreign emitter info
   const foreignEmitterChain = 2;
@@ -69,13 +84,13 @@ describe(" 1: Hello World", function() {
       );
 
       it("Invalid Account PDA: config", async function() {
-        const possibleConfigs: web3.PublicKey[] = [];
+        const possibleConfigs: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleConfigs.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [Buffer.from("config"), bumpBytes],
                 HELLO_WORLD_ADDRESS
               )
@@ -101,29 +116,16 @@ describe(" 1: Hello World", function() {
               clock: wormholeCpi.clock,
               rent: wormholeCpi.rent,
             })
-            .instruction()
-            .then((ix) =>
-              web3.sendAndConfirmTransaction(
-                connection,
-                new web3.Transaction().add(ix),
-                [wallet.signer()]
-              )
-            )
-            .catch((reason) => {
-              expect(
-                errorExistsInLog(
-                  reason,
-                  "Cross-program invocation with unauthorized signer or writable account"
-                )
-              ).is.true;
-              return null;
-            });
-          expect(initializeTx).is.null;
+            .instruction();
+          await expectIxToFailWithError(
+            initializeTx,
+            "Cross-program invocation with unauthorized signer or writable account",
+          );
         }
       });
 
       it("Invalid Account PDA: wormhole_program", async function() {
-        const wormholeProgram = web3.Ed25519Program.programId;
+        const wormholeProgram = Ed25519Program.programId;
 
         const initializeTx = await program.methods
           .initialize()
@@ -139,29 +141,18 @@ describe(" 1: Hello World", function() {
             clock: wormholeCpi.clock,
             rent: wormholeCpi.rent,
           })
-          .instruction()
-          .then((ix) =>
-            web3.sendAndConfirmTransaction(
-              connection,
-              new web3.Transaction().add(ix),
-              [wallet.signer()]
-            )
-          )
-          .catch((reason) => {
-            expect(errorExistsInLog(reason, "InvalidProgramId")).is.true;
-            return null;
-          });
-        expect(initializeTx).is.null;
+          .instruction();
+        await expectIxToFailWithError(initializeTx, "InvalidProgramId");
       });
 
       it("Invalid Account PDA: wormhole_bridge", async function() {
-        const possibleWormholeBridges: web3.PublicKey[] = [];
+        const possibleWormholeBridges: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleWormholeBridges.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [Buffer.from("Bridge"), bumpBytes],
                 WORMHOLE_ADDRESS
               )
@@ -189,30 +180,19 @@ describe(" 1: Hello World", function() {
               clock: wormholeCpi.clock,
               rent: wormholeCpi.rent,
             })
-            .instruction()
-            .then((ix) =>
-              web3.sendAndConfirmTransaction(
-                connection,
-                new web3.Transaction().add(ix),
-                [wallet.signer()]
-              )
-            )
-            .catch((reason) => {
-              expect(errorExistsInLog(reason, "AccountNotInitialized")).is.true;
-              return null;
-            });
-          expect(initializeTx).is.null;
+            .instruction();
+          await expectIxToFailWithError(initializeTx, "AccountNotInitialized");
         }
       });
 
       it("Invalid Account PDA: wormhole_fee_collector", async function() {
-        const possibleWormholeFeeCollectors: web3.PublicKey[] = [];
+        const possibleWormholeFeeCollectors: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleWormholeFeeCollectors.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [Buffer.from("fee_collector"), bumpBytes],
                 WORMHOLE_ADDRESS
               )
@@ -244,9 +224,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -259,13 +239,13 @@ describe(" 1: Hello World", function() {
       });
 
       it("Invalid Account PDA: wormhole_emitter", async function() {
-        const possibleWormholeEmitters: web3.PublicKey[] = [];
+        const possibleWormholeEmitters: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleWormholeEmitters.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [Buffer.from("emitter"), bumpBytes],
                 HELLO_WORLD_ADDRESS
               )
@@ -295,9 +275,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -315,13 +295,13 @@ describe(" 1: Hello World", function() {
       });
 
       it("Invalid Account PDA: wormhole_sequence", async function() {
-        const possibleWormholeSequences: web3.PublicKey[] = [];
+        const possibleWormholeSequences: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleWormholeSequences.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [
                   Buffer.from("Sequence"),
                   wormholeCpi.wormholeEmitter.toBuffer(),
@@ -357,9 +337,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -386,9 +366,9 @@ describe(" 1: Hello World", function() {
           WORMHOLE_ADDRESS
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -424,9 +404,9 @@ describe(" 1: Hello World", function() {
           WORMHOLE_ADDRESS
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -454,14 +434,14 @@ describe(" 1: Hello World", function() {
         const nonOwners = [];
 
         for (let i = 0; i < FUZZ_TEST_ITERATIONS; ++i) {
-          nonOwners.push(web3.Keypair.generate());
+          nonOwners.push(Keypair.generate());
         }
 
         // Airdrop funds for these a-holes
         await Promise.all(
           nonOwners.map(async (nonOwner) => {
             await connection
-              .requestAirdrop(nonOwner.publicKey, 69 * web3.LAMPORTS_PER_SOL)
+              .requestAirdrop(nonOwner.publicKey, 69 * LAMPORTS_PER_SOL)
               .then((tx) => connection.confirmTransaction(tx));
           })
         );
@@ -478,9 +458,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [nonOwner]
               )
             )
@@ -493,13 +473,13 @@ describe(" 1: Hello World", function() {
       });
 
       it("Invalid Account PDA: config", async function() {
-        const possibleConfigs: web3.PublicKey[] = [];
+        const possibleConfigs: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleConfigs.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [Buffer.from("config"), bumpBytes],
                 HELLO_WORLD_ADDRESS
               )
@@ -520,9 +500,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -540,13 +520,13 @@ describe(" 1: Hello World", function() {
       });
 
       it("Invalid Account PDA: foreign_emitter", async function() {
-        const possibleForeignEmitters: web3.PublicKey[] = [];
+        const possibleForeignEmitters: PublicKey[] = [];
         for (let i = 255; i >= 0; --i) {
           const bumpBytes = Buffer.alloc(1);
           bumpBytes.writeUint8(i);
           try {
             possibleForeignEmitters.push(
-              web3.PublicKey.createProgramAddressSync(
+              PublicKey.createProgramAddressSync(
                 [
                   Buffer.from("foreign_emitter"),
                   (function() {
@@ -577,9 +557,9 @@ describe(" 1: Hello World", function() {
             })
             .instruction()
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -619,9 +599,9 @@ describe(" 1: Hello World", function() {
           })
           .instruction()
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -647,9 +627,9 @@ describe(" 1: Hello World", function() {
             emitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -670,9 +650,9 @@ describe(" 1: Hello World", function() {
             emitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -693,9 +673,9 @@ describe(" 1: Hello World", function() {
             Buffer.alloc(32) // emitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -717,9 +697,9 @@ describe(" 1: Hello World", function() {
             bogusEmitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -750,9 +730,9 @@ describe(" 1: Hello World", function() {
             emitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -788,9 +768,9 @@ describe(" 1: Hello World", function() {
             emitterAddress
           )
             .then((ix) =>
-              web3.sendAndConfirmTransaction(
+              sendAndConfirmTransaction(
                 connection,
-                new web3.Transaction().add(ix),
+                new Transaction().add(ix),
                 [wallet.signer()]
               )
             )
@@ -831,9 +811,9 @@ describe(" 1: Hello World", function() {
           helloMessage
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -868,9 +848,9 @@ describe(" 1: Hello World", function() {
           helloMessage
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -947,9 +927,9 @@ describe(" 1: Hello World", function() {
             )
           )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -998,9 +978,9 @@ describe(" 1: Hello World", function() {
             )
           )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -1048,9 +1028,9 @@ describe(" 1: Hello World", function() {
             )
           )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -1096,9 +1076,9 @@ describe(" 1: Hello World", function() {
             )
           )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -1150,9 +1130,9 @@ describe(" 1: Hello World", function() {
           signedWormholeMessage
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
@@ -1183,9 +1163,9 @@ describe(" 1: Hello World", function() {
           signedWormholeMessage
         )
           .then((ix) =>
-            web3.sendAndConfirmTransaction(
+            sendAndConfirmTransaction(
               connection,
-              new web3.Transaction().add(ix),
+              new Transaction().add(ix),
               [wallet.signer()]
             )
           )
