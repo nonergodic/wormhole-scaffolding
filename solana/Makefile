@@ -1,36 +1,119 @@
-include testing.env
+.DEFAULT_GOAL = build
+.PHONY: build test unit-test integration-test clean
 
-.PHONY: dependencies test cargo-test unit-test integration-test clean all
+NETWORK ?= devnet #by default we build for devnet
+supported_networks := mainnet testnet devnet
+ifeq ($(strip $(filter $(supported_networks),$(NETWORK))),)
+  $(error Invalid choice $(NETWORK) for NETWORK - must be one of $(supported_networks))
+endif
+undefine supported_networks
 
-all: test
+# ----------------------------------------- IMPLEMENTATION -----------------------------------------
 
-.PHONY: clean
-clean:
-	rm -rf node_modules target dependencies/*.so
+.PHONY: dependencies
 
-dependencies: node_modules dependencies/wormhole.so dependencies/token_bridge.so
+#Ok, the following build code is a bit of a doosy, so bear with me.
+#Our goal is to avoid having to go through Anchor's silly, Rube Goldberg-esque "build, get the
+# generated keypairs/program ids, manually replace the program ids in the declare_id! macros as well
+# as in Anchor.toml, then build for real so you can finally actually deploy" process. <insert
+# exasperated rant about lack of DRY and non-streamlined build processes here>
+#
+#To accomplish this we:
+# 1. determine the program ids (using `anchor list keys`)
+# 2. generate Anchor.toml dynamically to include them (with the help of Anchor.toml.base)
+# 3. pass the program ids to Rust in a way that they can be used at compile time
+#
+#All three steps are annoyingly finicky - hence this long elaboration.
+#
+#Right off the bat we run into a catch-22 type situation, because to run `anchor list keys` which
+# prints the program ids of our programs, we need Anchor.toml to exist (in particular, it needs the
+# provider that's specified in there). We cut the Gordian knot by temporarily replacing any existing
+# Anchor.toml with its .base version, then runing `anchor list keys`, and then undoing things again.
+#
+#For passing the program ids to Rust, it would be preferable to just set them in environment
+# variables and pass those values to the declare_id! macro. However, the declare_id! macro expects
+# either a literal string or a Pubkey, but reading the environment variable at compile time via
+# the env! macro actually gives a &'static str and there is no good way to convert that into a
+# Pubkey (the only const constructor function that Pubkey offers takes a byte array and in turn
+# the decode function of the base58 crate that Solana uses is not const and so we can't actually
+# convert our base58 str into the required [u8; 32] byte array at compile time).
+#Thus instead use the include_bytes! macro to read the program id as a byte array from a file that
+# that we create with our generate_pid_bytes_file.ts script.
+#
+#Overall this process is a lot more involved than I'd like and hence far from elegant, but at least
+# we now only have to build once and be done and don't have to manually specify/update the program
+# ids everywhere.
 
-node_modules:
-	yarn
+#initialize programs as a variable that's expanded immediately, otherwise the subsequent += pname
+# call won't be expanded in time and thus programs would erroneously end up empty
+programs :=
+define expand_program_definitions_block
+$(eval name_id := $(subst :, ,$(1)))
+$(eval pname := $(word 1, $(name_id)))
+$(eval $(pname)_base58_pid := $(word 2, $(name_id)))
+$(eval $(pname)_keypair_file := $(CURDIR)/target/deploy/$(pname)-keypair.json)
+$(eval $(pname)_pid_bin_file := $(CURDIR)/target/deploy/$(pname)-program_id.bin)
+$(eval programs += $(pname))
 
-dependencies/token_bridge.so:
-	bash shell-scripts/build_wormhole_repo_bpfs.sh
+$(eval $($(pname)_pid_bin_file): $($(pname)_keypair_file) node_modules
+	yarn run ts-node ts/generate_pid_bytes_file.ts $($(pname)_base58_pid) $($(pname)_pid_bin_file))
+$(eval undefine name_id pname)
+endef
 
-dependencies/wormhole.so:
-	bash shell-scripts/build_wormhole_repo_bpfs.sh
+#anchor keys list generates keypair files in target/deploy as a side effect if they don't exist yet!
+anchor_list_keys := $(shell \
+  mv -f Anchor.toml Anchor.toml.tmp 2>/dev/null && \
+	cp -n Anchor.toml.base Anchor.toml && \
+	anchor keys list | sed -n 's/\s*//pg' && \
+	rm Anchor.toml &&	mv -f Anchor.toml.tmp Anchor.toml 2>/dev/null)
+$(foreach prognkey,$(anchor_list_keys),$(call expand_program_definitions_block,$(prognkey)))
+undefine anchor_list_keys
 
-.PHONY: cargo-test
-cargo-test:
+program_id_bin_files = $(foreach pname,$(programs),$($(pname)_pid_bin_file))
+program_id_env_vars = $(foreach pname,$(programs),$(pname)_PROGRAM_ID_FILE=$($(pname)_pid_bin_file))
+
+test: unit-test integration-test
+
+unit-test: build
 	cargo clippy -- --allow clippy::result_large_err
-	cargo test
+	$(program_id_env_vars) cargo test
 
-.PHONY: unit-test
-unit-test: cargo-test
-
-.PHONY: integration-test
-integration-test: dependencies
-	md5sum -c dependencies/checksum.txt
+integration-test: build
 	anchor test
 
-.PHONY: test
-test: unit-test integration-test
+build: dependencies Anchor.toml node_modules $(program_id_bin_files)
+	@echo "> Building programs"
+	$(program_id_env_vars) anchor build
+
+dependencies:
+	@echo "> Building dependencies"
+	@$(MAKE) -C dependencies NETWORK=$(NETWORK)
+
+clean:
+	@$(MAKE) -C dependencies clean
+	rm -rf node_modules target .anchor Anchor.toml
+
+
+create_toml_program_table = \
+ 's/^([a-zA-Z_]*)\s*=\s*([a-zA-Z0-9]*)$$/\n[$(1)]\naddress = "\2"\nprogram = ".\/$(2)\1.so"/p'
+Anchor.toml: Anchor.toml.base dependencies/wormhole_program_ids.toml \
+    $(foreach pname,$(programs),$($(pname)_keypair_file))
+	@echo "> Generating Anchor.toml"
+	echo "######################################################################\n" \
+	     "# This file is autogenerated by make - edit Anchor.toml.base instead #\n" \
+	     "######################################################################\n" \
+		> Anchor.toml
+	cat Anchor.toml.base >> Anchor.toml
+	echo $(foreach pname,$(programs),$(pname)=$($(pname)_base58_pid)\n) | \
+	  sed -n $(call create_toml_program_table,programs.localnet,target\/deploy\/) \
+		>> Anchor.toml
+	cat dependencies/wormhole_program_ids.toml | \
+		sed -n $(call create_toml_program_table,[test.genesis],dependencies\/) \
+		>> Anchor.toml
+
+dependencies/wormhole_program_ids.toml: dependencies
+	
+node_modules: package.json yarn.lock
+	@echo "> Updating node modules"
+	yarn
+	touch node_modules
