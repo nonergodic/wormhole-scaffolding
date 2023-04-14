@@ -1,23 +1,30 @@
 .DEFAULT_GOAL = build
 .PHONY: build test unit-test integration-test clean
 
-NETWORK ?= devnet #by default we build for devnet
-NETWORK := $(strip $(NETWORK))
+NETWORK ?= devnet #by default we build for the local (tilt) cluster
+#exported for use in dependencies/Makefile and TypeScript code
+export NETWORK := $(strip $(NETWORK))
+
+#WARNING regarding naming conflicts between Solana clusters and Wormhole networks!
+#testnet actually refers to Solana's devnet cluster (Solana also has a cluster called testnet but
+# that is meant for trying out new version/releases of the protocol and not for smart contract devs)
+#devnet refers to Wormhole's tilt devnet i.e. it's a local cluster
 export supported_networks := mainnet testnet devnet
+
+# ----------------------------------------- IMPLEMENTATION -----------------------------------------
+
 ifeq ($(strip $(filter $(supported_networks),$(NETWORK))),)
   $(error Invalid choice $(NETWORK) for NETWORK - must be one of $(supported_networks))
 endif
 
-# ----------------------------------------- IMPLEMENTATION -----------------------------------------
-
-.PHONY: dependencies
+base58_char := [a-km-zA-HJ-NP-Z1-9]
 
 #Ok, the following build code is a bit of a doosy, so bear with me.
 #
-#Our goal is to avoid having to go through Anchor's silly, Rube Goldberg-esque "build, get the
-# generated keypairs/program ids, manually replace the program ids in the declare_id! macros as well
-# as in Anchor.toml, then build for real so we can finally actually deploy" process. <insert
-# exasperated rant about lack of DRY and non-streamlined build processes here>
+#Our goal is to avoid having to go through Anchor's silly, Rube Goldberg-esque deploy process of
+# "build, get the generated program ids, manually replace the old ids in the declare_id! macros of
+# our programs as well as in Anchor.toml, then build for real so we can finally actually deploy".
+# <insert long, exasperated rant about lack of DRY and non-streamlined build processes here>
 #
 #To accomplish this we:
 # 1. determine the program ids (using `anchor list keys`)
@@ -59,50 +66,67 @@ $(eval $(pname)_base58_pid := $(word 2, $(name_id)))
 $(eval $(pname)_keypair_file := $(CURDIR)/target/deploy/$(pname)-keypair.json)
 $(eval $(pname)_pid_bin_file := $(CURDIR)/target/deploy/$(pname)-program_id.bin)
 $(eval programs += $(pname))
-
-$(eval $($(pname)_pid_bin_file): $($(pname)_keypair_file) node_modules
-	yarn run ts-node ts/generate_pid_bytes_file.ts $($(pname)_base58_pid) $($(pname)_pid_bin_file))
 $(eval undefine name_id pname)
 endef
 
-#anchor keys list generates keypair files in target/deploy as a side effect if they don't exist yet!
-anchor_list_keys := $(shell \
+#`anchor keys list` generates all keypair files in target/deploy as a side effect if they don't
+# exist hence there's no rule for them yet!
+keys_list_syntax = \([^:]*\):\s*\($(base58_char)*\)
+anchor_keys_list := $(shell \
   mv -f Anchor.toml Anchor.toml.tmp 2>/dev/null; cp Anchor.toml.base Anchor.toml; \
-	anchor keys list | sed -n 's/\s*//pg'; \
-	rm Anchor.toml; mv -f Anchor.toml.tmp Anchor.toml 2>/dev/null)
-$(foreach prognkey,$(anchor_list_keys),$(call expand_program_definitions_block,$(prognkey)))
-undefine anchor_list_keys
+  anchor keys list | sed 's/^$(keys_list_syntax)$$/\1:\2/'; \
+  rm Anchor.toml; mv -f Anchor.toml.tmp Anchor.toml 2>/dev/null)
+ifneq ($(shell echo $(anchor_keys_list) | sed -n 's/$(keys_list_syntax)/\1:\2/p'),\
+       $(anchor_keys_list))
+  $(error Unexpected output from `anchor keys list` (Do you have a typo in Anchor.toml.base?):\
+          $(anchor_keys_list))
+endif
+$(foreach prognkey,$(anchor_keys_list),$(call expand_program_definitions_block,$(prognkey)))
+undefine anchor_keys_list keys_list_syntax
 
-program_id_bin_files = $(foreach pname,$(programs),$($(pname)_pid_bin_file))
-program_id_env_vars = $(foreach pname,$(programs),$(pname)_PROGRAM_ID_FILE=$($(pname)_pid_bin_file))
-$(foreach envvar,$(program_id_env_vars),$(eval export $(envvar)))
+define to_upper
+$(strip $(shell echo '$(1)' | tr '[:lower:]' '[:upper:]'))
+endef
+
+#we'd love to use these environment variables directly in our Rust code too (not just in TS)...
+$(foreach pname,$(programs),\
+  $(eval export $(call to_upper,$(pname))_PROGRAM_ID=$($(pname)_base58_pid)))
+#... alas we have to go through the binary files instead
+$(foreach pname,$(programs),\
+  $(eval export $(call to_upper,$(pname))_PROGRAM_ID_FILE=$($(pname)_pid_bin_file)))
+
+.PHONY: build-prerequs dependencies
 
 test: unit-test integration-test
 
-unit-test: build
+unit-test: build-prerequs
 	cargo clippy -- --allow clippy::result_large_err
 	cargo test
 
-integration-test: build
-	anchor test
+integration-test: build-prerequs
+	anchor test -- --features $(NETWORK)
 
-build: dependencies Anchor.toml node_modules $(program_id_bin_files)
+build: build-prerequs
 	@echo "> Building programs"
-	anchor build
+	anchor build -- --features $(NETWORK)
 
+build-prerequs: dependencies Anchor.toml node_modules \
+    $(foreach pname,$(programs),$($(pname)_pid_bin_file))
+	
 dependencies:
 	@echo "> Building dependencies for $(NETWORK)"
-	@$(MAKE) -C dependencies NETWORK=$(NETWORK)
+	@$(MAKE) -C dependencies
 
 clean:
 	@$(MAKE) -C dependencies clean
 	rm -rf node_modules target .anchor Anchor.toml
 
+#phony targets above, non-phony targets below
 
-create_toml_program_table = \
- 's/^\([a-zA-Z_]*\)\s*=\s*\([a-zA-Z0-9]*\)$$/\n[$(1)]\naddress = "\2"\nprogram = ".\/$(2)\1.so"/p'
+find_pattern = ^\([a-zA-Z0-9_]*\)\s*=\s*\($(base58_char)*\)$$
+replace_pattern = \n[[test.genesis]]\naddress = "\2"\nprogram = ".\/dependencies\/$(NETWORK)\/\1.so"
 Anchor.toml: Anchor.toml.base dependencies/$(NETWORK)/wormhole_program_ids.toml \
-    $(foreach pname,$(programs),$($(pname)_keypair_file))
+    $(foreach pname,$(programs),$($(pname)_keypair_file)) target/network_changed
 	@echo "> Generating Anchor.toml"
 	printf %b "######################################################################\n" \
 	          "# This file is autogenerated by make - edit Anchor.toml.base instead #\n" \
@@ -110,13 +134,26 @@ Anchor.toml: Anchor.toml.base dependencies/$(NETWORK)/wormhole_program_ids.toml 
 	  > Anchor.toml
 	cat Anchor.toml.base >> Anchor.toml
 	cat dependencies/$(NETWORK)/wormhole_program_ids.toml | \
-		sed -n $(call create_toml_program_table,[test.genesis],dependencies\/$(NETWORK)\/) \
-		>> Anchor.toml
+	    sed -n 's/$(find_pattern)/$(replace_pattern)/p' \
+	  >> Anchor.toml
 	printf %b "\n[programs.localnet]\n" \
-	  	$(foreach pname,$(programs),"$(pname) = \"$($(pname)_base58_pid)\"\n") \
-		>> Anchor.toml
+	    $(foreach pname,$(programs),"$(pname) = \"$($(pname)_base58_pid)\"\n") \
+	  >> Anchor.toml
 
 dependencies/$(NETWORK)/wormhole_program_ids.toml: dependencies
+
+ifneq ($(NETWORK), $(shell cat target/network_changed 2>/dev/null))
+#force update of target/network_changed if value of NETWORK changed from last time
+.PHONY: target/network_changed
+endif
+target/network_changed:
+	echo $(NETWORK) > target/network_changed
+
+define pid_bin_file_rule
+$($(1)_pid_bin_file): $($(1)_keypair_file) node_modules
+	yarn run ts-node ts/generate_pid_bytes_file.ts $($(1)_base58_pid) $($(1)_pid_bin_file)
+endef
+$(foreach pname,$(programs),$(eval $(call pid_bin_file_rule,$(pname))))
 	
 node_modules: package.json yarn.lock
 	@echo "> Updating node modules"

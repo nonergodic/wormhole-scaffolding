@@ -49,7 +49,7 @@ impl AnchorDeserialize for HelloWorldMessage {
     fn deserialize(buf: &mut &[u8]) -> io::Result<Self> {
         match buf[0] {
             PAYLOAD_ID_ALIVE => Ok(HelloWorldMessage::Alive {
-                program_id: Pubkey::new(&buf[1..33]),
+                program_id: Pubkey::try_from(&buf[1..33]).unwrap(),
             }),
             PAYLOAD_ID_HELLO => {
                 let length = {

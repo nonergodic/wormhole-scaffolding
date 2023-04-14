@@ -2332,11 +2332,6 @@ eyes@^0.1.8:
   resolved "https://registry.yarnpkg.com/eyes/-/eyes-0.1.8.tgz#62cf120234c683785d902348a800ef3e0cc20bc0"
   integrity sha512-GipyPsXO1anza0AOZdy69Im7hGFCNB7Y/NGjDlZGJ3GJJLtwNSb2vrzYrTYJRrRloVx7pl+bhUaTB8yiccPvFQ==
 
-fast-cartesian@^7.6.0:
-  version "7.6.0"
-  resolved "https://registry.yarnpkg.com/fast-cartesian/-/fast-cartesian-7.6.0.tgz#131b709996b0a05ecf0897047a9ca4e243e8ed09"
-  integrity sha512-Sj44uQb/hrMjJwFKFdzq+VJzmb8KwzBjuMIeKvgYxHxJs9RLK0T4PNIh44idRAJKG3uwqDLr2PaqpWIa0jergA==
-
 fast-safe-stringify@^2.0.7:
   version "2.1.1"
   resolved "https://registry.yarnpkg.com/fast-safe-stringify/-/fast-safe-stringify-2.1.1.tgz#c406a83b6e70d9e35ce3b30a81141df30aeba884"

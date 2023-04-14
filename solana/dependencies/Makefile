@@ -19,11 +19,11 @@ solana_version := $(shell solana --version 2>/dev/null | \
                     sed -n 's/^solana-cli \([0-9\.]*\) .*$$/\1/p')
 max_solana_version := 1.15.0
 ifndef solana_version
-	$(error "Solana not installed - please install version 1.14.14 \(< $(max_solana_version)!\)")
+  $(error "Solana not installed - please install version 1.14.14 \(< $(max_solana_version)!\)")
 endif
 ifeq ($(shell printf '%s\n' "$(solana_version)" "$(max_solana_version)" | sort -V | head -n1), \
       $(max_solana_version))
-	$(error "Solana version too new - please downgrade to 1.14.14")
+  $(error "Solana version too new - please downgrade to 1.14.14")
 endif
 
 #defining these explicitly to deal with make peculiarities
@@ -45,9 +45,9 @@ $(network_sos)&: #&: specifies a grouped target
 	mkdir -p $(NETWORK)
 	mv $(addprefix tmp-wormhole/solana/artifacts-$(NETWORK)/,$(wormhole_sos)) $(NETWORK)
 	cat tmp-wormhole/solana/Makefile | \
-		grep '^\(\($(subst $(space),\$(rparen)\|\$(lparen),$(WORMHOLE_BRIDGES))\)\)' | \
-		sed -n 's/^\(.*\)_ADDRESS_$(NETWORK)=\(.*\)$$/\1 = \2/p' \
-		> $(NETWORK)/wormhole_program_ids.toml
+	  grep '^\(\($(subst $(space),\$(rparen)\|\$(lparen),$(WORMHOLE_BRIDGES))\)\)' | \
+	  sed -n 's/^\(.*\)_ADDRESS_$(NETWORK)=\(.*\)$$/\1 = \2/p' \
+	  > $(NETWORK)/wormhole_program_ids.toml
 	rm -rf tmp-wormhole
 
 mpl_token_metadata.so:

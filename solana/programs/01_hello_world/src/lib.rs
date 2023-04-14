@@ -10,7 +10,7 @@ pub mod error;
 pub mod message;
 pub mod state;
 
-declare_id!(Pubkey::new_from_array(*include_bytes!(env!("hello_world_PROGRAM_ID_FILE"))));
+declare_id!(Pubkey::new_from_array(*include_bytes!(env!("HELLO_WORLD_PROGRAM_ID_FILE"))));
 
 #[program]
 /// # Hello World (Scaffolding Example #1)
