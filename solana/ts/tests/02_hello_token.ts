@@ -17,26 +17,7 @@ import * as mock from "@certusone/wormhole-sdk/lib/cjs/mock";
 import { getTokenBridgeDerivedAccounts } from "@certusone/wormhole-sdk/lib/cjs/solana";
 import * as wormhole from "@certusone/wormhole-sdk/lib/cjs/solana/wormhole";
 import { deriveWrappedMintKey } from "@certusone/wormhole-sdk/lib/cjs/solana/tokenBridge";
-import {
-  createInitializeInstruction,
-  createRegisterForeignContractInstruction,
-  createSendNativeTokensWithPayloadInstruction,
-  getSenderConfigData,
-  getForeignContractData,
-  deriveTmpTokenAccountKey,
-  deriveTokenTransferMessageKey,
-  getRedeemerConfigData,
-  createHelloTokenProgramInterface,
-  deriveSenderConfigKey,
-  deriveForeignContractKey,
-  createRedeemNativeTransferWithPayloadInstruction,
-  createSendWrappedTokensWithPayloadInstruction,
-  createRedeemWrappedTransferWithPayloadInstruction,
-  createUpdateRelayerFeeInstruction,
-  getCompleteTransferNativeWithPayloadCpiAccounts,
-  deriveRedeemerConfigKey,
-  getCompleteTransferWrappedWithPayloadCpiAccounts,
-} from "../sdk/02_hello_token";
+import * as helloToken from "../sdk/02_hello_token";
 import {
   LOCALHOST,
   PAYER_KEYPAIR,
@@ -68,7 +49,7 @@ describe(" 2: Hello Token", function() {
   const foreignContractAddress = Buffer.alloc(32, "deadbeef", "hex");
   const unregisteredContractAddress = Buffer.alloc(32, "deafbeef", "hex");
   const foreignTokenBridge = new mock.MockEthereumTokenBridge(ETHEREUM_TOKEN_BRIDGE_ADDRESS, 200);
-  const program = createHelloTokenProgramInterface(connection, HELLO_TOKEN_PID);
+  const program = helloToken.createHelloTokenProgramInterface(connection, HELLO_TOKEN_PID);
 
   describe("Initialize Program", function() {
     // Set a relayer fee of 1%
@@ -77,7 +58,7 @@ describe(" 2: Hello Token", function() {
     const relayerFeePrecision = 100_000_000;
 
     const createInitializeIx = (opts?: {relayerFee?: number, relayerFeePrecision?: number}) =>
-      createInitializeInstruction(
+      helloToken.createInitializeInstruction(
         connection,
         HELLO_TOKEN_PID,
         payer.publicKey,
@@ -107,7 +88,7 @@ describe(" 2: Hello Token", function() {
       await expectIxToSucceed(createInitializeIx());
 
       const senderConfigData =
-        await getSenderConfigData(connection, HELLO_TOKEN_PID);
+        await helloToken.getSenderConfigData(connection, HELLO_TOKEN_PID);
       expect(senderConfigData.owner).deep.equals(payer.publicKey);
       expect(senderConfigData.finality).equals(0);
 
@@ -128,7 +109,8 @@ describe(" 2: Hello Token", function() {
       ][]).forEach(([lhs, rhs]) =>
         expect(senderConfigData.tokenBridge[lhs]).deep.equals(tokenBridgeAccounts[rhs]));
 
-      const redeemerConfigData = await getRedeemerConfigData(connection, HELLO_TOKEN_PID);
+      const redeemerConfigData =
+        await helloToken.getRedeemerConfigData(connection, HELLO_TOKEN_PID);
       expect(redeemerConfigData.owner).deep.equals(payer.publicKey);
       expect(redeemerConfigData.relayerFee).equals(relayerFee);
       expect(redeemerConfigData.relayerFeePrecision).equals(relayerFeePrecision);
@@ -161,7 +143,7 @@ describe(" 2: Hello Token", function() {
       sender?: PublicKey,
       relayerFee?: number,
       relayerFeePrecision?: number
-    }) => createUpdateRelayerFeeInstruction(
+    }) => helloToken.createUpdateRelayerFeeInstruction(
       connection,
       HELLO_TOKEN_PID,
       opts?.sender ?? payer.publicKey,
@@ -196,7 +178,8 @@ describe(" 2: Hello Token", function() {
     it("Finally Update Relayer Fee", async function() {
       await expectIxToSucceed(createUpdateRelayerFeeIx());
 
-      const redeemerConfigData = await getRedeemerConfigData(connection, HELLO_TOKEN_PID);
+      const redeemerConfigData =
+        await helloToken.getRedeemerConfigData(connection, HELLO_TOKEN_PID);
       expect(redeemerConfigData.relayerFee).equals(relayerFee);
       expect(redeemerConfigData.relayerFeePrecision).equals(relayerFeePrecision);
     });
@@ -206,7 +189,7 @@ describe(" 2: Hello Token", function() {
     const createRegisterForeignContractIx = (opts?: {
       sender?: PublicKey,
       contractAddress?: Buffer,
-    }) => createRegisterForeignContractInstruction(
+    }) => helloToken.createRegisterForeignContractInstruction(
       connection,
       HELLO_TOKEN_PID,
       opts?.sender ?? payer.publicKey,
@@ -231,8 +214,8 @@ describe(" 2: Hello Token", function() {
           await program.methods.registerForeignContract(chain, [...foreignContractAddress])
             .accounts({
               owner: payer.publicKey,
-              config: deriveSenderConfigKey(HELLO_TOKEN_PID),
-              foreignContract: deriveForeignContractKey(HELLO_TOKEN_PID, chain),
+              config: helloToken.deriveSenderConfigKey(HELLO_TOKEN_PID),
+              foreignContract: helloToken.deriveForeignContractKey(HELLO_TOKEN_PID, chain),
               tokenBridgeForeignEndpoint:
                 deriveMaliciousTokenBridgeEndpointKey(TOKEN_BRIDGE_PID, chain, Buffer.alloc(32)),
               tokenBridgeProgram: new PublicKey(TOKEN_BRIDGE_PID),
@@ -269,7 +252,7 @@ describe(" 2: Hello Token", function() {
         await expectIxToSucceed(createRegisterForeignContractIx({contractAddress}));
 
         const {chain, address} =
-          await getForeignContractData(connection, HELLO_TOKEN_PID, foreignChain);
+          await helloToken.getForeignContractData(connection, HELLO_TOKEN_PID, foreignChain);
         expect(chain).equals(foreignChain);
         expect(address).deep.equals(contractAddress);
       })
@@ -277,8 +260,7 @@ describe(" 2: Hello Token", function() {
   });
 
   const batchId = 0;
-  //for native tokens with more than 8 decimals, some digits will be truncated
-  const amount = 31337n;
+  const sendAmount = 31337n; //we are sending once
   const recipientAddress = Buffer.alloc(32, "1337beef", "hex");
 
   const getWormholeSequence = async () => (
@@ -290,7 +272,7 @@ describe(" 2: Hello Token", function() {
       parseTokenTransferPayload(
         (await wormhole.getPostedMessage(
           connection,
-          deriveTokenTransferMessageKey(HELLO_TOKEN_PID, sequence)
+          helloToken.deriveTokenTransferMessageKey(HELLO_TOKEN_PID, sequence)
         )).message.payload
       ).tokenTransferPayload;
     
@@ -299,11 +281,11 @@ describe(" 2: Hello Token", function() {
   }
 
   const verifyTmpTokenAccountDoesNotExist = async (mint: PublicKey) => {
-    const tmpTokenAccountKey = deriveTmpTokenAccountKey(HELLO_TOKEN_PID, mint);
+    const tmpTokenAccountKey = helloToken.deriveTmpTokenAccountKey(HELLO_TOKEN_PID, mint);
     await expect(getAccount(connection, tmpTokenAccountKey)).to.be.rejected;
   }
 
-  const getTokenBalance = async(tokenAccount: PublicKey) =>
+  const getTokenBalance = async (tokenAccount: PublicKey) =>
     (await getAccount(connection, tokenAccount)).amount;
 
   ([
@@ -326,6 +308,10 @@ describe(" 2: Hello Token", function() {
   .forEach(([isNative, decimals, tokenAddress, mint]) => {
     describe(`For ${isNative ? "Native" : "Wrapped"} With ${decimals} Decimals`, function() {
       const recipientTokenAccount = getAssociatedTokenAddressSync(mint, payer.publicKey);
+      // We treat amount as if it was specified with a precision of 8 decimals
+      const truncation = (isNative ? 10n ** BigInt(decimals - 8) : 1n);
+      //we send once, but we receive twice, hence /2, and w also have to adjust for truncation
+      const receiveAmount = ((sendAmount / 2n) / truncation) * truncation;
 
       describe(`Send Tokens With Payload`, function() {
         const createSendTokensWithPayloadIx = (opts?: {
@@ -335,8 +321,8 @@ describe(" 2: Hello Token", function() {
           recipientChain?: ChainId,
         }) => 
           ( isNative
-          ? createSendNativeTokensWithPayloadInstruction
-          : createSendWrappedTokensWithPayloadInstruction
+          ? helloToken.createSendNativeTokensWithPayloadInstruction
+          : helloToken.createSendWrappedTokensWithPayloadInstruction
           )(
           connection,
           HELLO_TOKEN_PID,
@@ -346,7 +332,7 @@ describe(" 2: Hello Token", function() {
           mint,
           {
             batchId,
-            amount: opts?.amount ?? amount,
+            amount: opts?.amount ?? sendAmount,
             recipientAddress: opts?.recipientAddress ?? recipientAddress,
             recipientChain: opts?.recipientChain ?? foreignChain,
           }
@@ -354,9 +340,8 @@ describe(" 2: Hello Token", function() {
 
         if (isNative && decimals > 8)
           it("Cannot Send Amount Less Than Bridgeable", async function() {
-            const amount = 9n;
             await expectIxToFailWithError(
-              await createSendTokensWithPayloadIx({amount}),
+              await createSendTokensWithPayloadIx({amount: 9n}),
               "ZeroBridgeAmount"
             );
           });
@@ -390,7 +375,7 @@ describe(" 2: Hello Token", function() {
           const balanceBefore = await getTokenBalance(recipientTokenAccount);
           await expectIxToSucceed(createSendTokensWithPayloadIx());
           const balanceChange = balanceBefore - await getTokenBalance(recipientTokenAccount);
-          expect(balanceChange).equals((amount / 10n) * 10n);
+          expect(balanceChange).equals((sendAmount / truncation) * truncation);
 
           await verifyWormholeMessage(sequence);
           await verifyTmpTokenAccountDoesNotExist(mint);
@@ -401,17 +386,14 @@ describe(" 2: Hello Token", function() {
         const tokenTransferPayload = (() => {
           const buf = Buffer.alloc(33);
           buf.writeUInt8(1, 0); // payload ID
-          payer.publicKey.toBuffer().copy(buf, 1);
+          payer.publicKey.toBuffer().copy(buf, 1); // payer is always recipient
           return buf;
         })();
 
-        // We treat amount as if it was specified with a precision of 8 decimals
-        const transferAmount = amount / (isNative ? 10n ** BigInt(decimals - 8) : 1n);
-    
         const published = foreignTokenBridge.publishTransferTokensWithPayload(
           tokenAddress,
-          CHAINS.solana, // tokenChain
-          transferAmount,
+          isNative ? CHAINS.solana : foreignChain, // tokenChain
+          receiveAmount / truncation, //adjust for decimals
           CHAINS.solana, // recipientChain
           HELLO_TOKEN_PID.toBuffer().toString("hex"),
           opts?.foreignContractAddress ?? foreignContractAddress,
@@ -423,37 +405,39 @@ describe(" 2: Hello Token", function() {
         return guardianSign(published);
       };
       
-      const signedMsg = publishAndSign();
-      
-      const createRedeemTransferWithPayloadIx = (
-        opts?: {sender?: PublicKey, signedMsg?: Buffer}
-      ) =>
+      const createRedeemTransferWithPayloadIx = (sender: PublicKey, signedMsg: Buffer) =>
         ( isNative
-        ? createRedeemNativeTransferWithPayloadInstruction
-        : createRedeemWrappedTransferWithPayloadInstruction
+        ? helloToken.createRedeemNativeTransferWithPayloadInstruction
+        : helloToken.createRedeemWrappedTransferWithPayloadInstruction
         )(
           connection,
           HELLO_TOKEN_PID,
-          opts?.sender ?? payer.publicKey,
+          sender,
           TOKEN_BRIDGE_PID,
           CORE_BRIDGE_PID,
-          opts?.signedMsg ?? signedMsg
+          signedMsg
         );
 
-      [payer, relayer].forEach(sender => {
+      [
+        payer,
+        relayer
+      ]
+      .forEach(sender => {
         const isSelfRelay = sender === payer;
+        
         describe(
-        `Receive Tokens With Payload (using ${isSelfRelay ? "self-relay" : "relayer"})`,
+        `Receive Tokens With Payload (via ${isSelfRelay ? "self-relay" : "relayer"})`,
         function() {
+          //got call it here so the nonce increases (signedMsg is different between tests)
+          const signedMsg = publishAndSign();
+
           it("Cannot Redeem From Unregistered Foreign Contract", async function() {
             const bogusMsg = publishAndSign(
               {foreignContractAddress: unregisteredContractAddress}
             );
             await postSignedMsgAsVaaOnSolana(bogusMsg);
             await expectIxToFailWithError(
-              await createRedeemTransferWithPayloadIx(
-                {sender: sender.publicKey, signedMsg: bogusMsg}
-              ),
+              await createRedeemTransferWithPayloadIx(sender.publicKey, bogusMsg),
               "InvalidForeignContract",
               [sender]
             );
@@ -468,12 +452,15 @@ describe(" 2: Hello Token", function() {
 
             const maliciousIx = await (async () => {
               const parsed = parseTokenTransferVaa(signedMsg);
-              const parsedMint = new PublicKey(parsed.tokenAddress);
-              const tmpTokenAccount = deriveTmpTokenAccountKey(HELLO_TOKEN_PID, parsedMint);
-              const tokenBridgeAccounts =
-                ( isNative
-                ? getCompleteTransferNativeWithPayloadCpiAccounts
-                : getCompleteTransferWrappedWithPayloadCpiAccounts)(
+              const parsedMint = isNative
+                ? new PublicKey(parsed.tokenAddress)
+                : deriveWrappedMintKey(TOKEN_BRIDGE_PID,  parsed.tokenChain, parsed.tokenAddress);
+
+              const tmpTokenAccount =
+                helloToken.deriveTmpTokenAccountKey(HELLO_TOKEN_PID, parsedMint);
+              const tokenBridgeAccounts = (isNative
+                ? helloToken.getCompleteTransferNativeWithPayloadCpiAccounts
+                : helloToken.getCompleteTransferWrappedWithPayloadCpiAccounts)(
                   TOKEN_BRIDGE_PID,
                   CORE_BRIDGE_PID,
                   relayer.publicKey,
@@ -487,8 +474,9 @@ describe(" 2: Hello Token", function() {
               
               return method([...parsed.hash])
                 .accounts({
-                  config: deriveRedeemerConfigKey(HELLO_TOKEN_PID),
-                  foreignContract: deriveForeignContractKey(HELLO_TOKEN_PID, parsed.emitterChain),
+                  config: helloToken.deriveRedeemerConfigKey(HELLO_TOKEN_PID),
+                  foreignContract:
+                    helloToken.deriveForeignContractKey(HELLO_TOKEN_PID, parsed.emitterChain),
                   tmpTokenAccount,
                   recipientTokenAccount: bogusTokenAccount,
                   recipient: relayer.publicKey,
@@ -501,34 +489,34 @@ describe(" 2: Hello Token", function() {
 
             await expectIxToFailWithError(
               maliciousIx,
-              isSelfRelay
-                ? "InvalidRecipient"
-                : "recipient_token_account. Error Code: ConstraintTokenOwner",
+              "Error Code: InvalidRecipient. Error Number: 6015",
               [relayer]
             );
           });
 
           it("Finally Receive Tokens With Payload", async function() {
-            const tokenAccounts =
-              ((isSelfRelay) ? [payer] : [payer, relayer]).map(kp => kp.publicKey);
+            const tokenAccounts = ((isSelfRelay) ? [payer] : [payer, relayer]).map(
+              kp => getAssociatedTokenAddressSync(mint, kp.publicKey)
+            );
             
             const balancesBefore = await Promise.all(tokenAccounts.map(getTokenBalance));
             await expectIxToSucceed(
-              createRedeemTransferWithPayloadIx({sender: sender.publicKey}),
+              createRedeemTransferWithPayloadIx(sender.publicKey, signedMsg),
               [sender]
             );
             const balancesChange = await Promise.all(
-              tokenAccounts.map(async (pk, i) => (await getTokenBalance(pk)) - balancesBefore[i])
+              tokenAccounts.map(async (acc, i) => (await getTokenBalance(acc)) - balancesBefore[i])
             );
 
             if (isSelfRelay) {
-              expect(balancesChange[0]).equals(amount);
+              expect(balancesChange[0]).equals(receiveAmount);
             }
             else {
               const { relayerFee, relayerFeePrecision } =
-                await getRedeemerConfigData(connection, HELLO_TOKEN_PID);
-              const relayerAmount = (BigInt(relayerFee) * amount) / BigInt(relayerFeePrecision);
-              expect(balancesChange[0]).equals(amount - relayerAmount);
+                await helloToken.getRedeemerConfigData(connection, HELLO_TOKEN_PID);
+              const relayerAmount =
+                (BigInt(relayerFee) * receiveAmount) / BigInt(relayerFeePrecision);
+              expect(balancesChange[0]).equals(receiveAmount - relayerAmount);
               expect(balancesChange[1]).equals(relayerAmount);
             }
 
@@ -537,8 +525,9 @@ describe(" 2: Hello Token", function() {
 
           it("Cannot Redeem Transfer Again", async function() {
             await expectIxToFailWithError(
-              await createRedeemTransferWithPayloadIx(),
-              "AlreadyRedeemed"
+              await createRedeemTransferWithPayloadIx(sender.publicKey, signedMsg),
+              "AlreadyRedeemed",
+              [sender]
             );
           });
         });

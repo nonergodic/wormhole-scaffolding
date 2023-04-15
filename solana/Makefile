@@ -1,7 +1,10 @@
 .DEFAULT_GOAL = build
 .PHONY: build test unit-test integration-test clean
 
-NETWORK ?= devnet #by default we build for the local (tilt) cluster
+ifndef (NETWORK)
+  $(info No NETWORK specified, defaulting to local cluster (devnet))
+  NETWORK = devnet
+endif
 #exported for use in dependencies/Makefile and TypeScript code
 export NETWORK := $(strip $(NETWORK))
 

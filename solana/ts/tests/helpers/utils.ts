@@ -75,6 +75,9 @@ export function boilerPlateReduction(connection: Connection, defaultSigner: Sign
     signers?: Signer[]
   ) =>
     expect(sendAndConfirmIx(ix, signers)).to.be.fulfilled;
+    // {try {await sendAndConfirmIx(ix, signers); expect(true);}
+    //  catch (error: any) {console.log(`expectIxToSucceed failed: ${error}`); expect(false);}}
+    
   
   const expectIxToFailWithError = async (
     ix: TransactionInstruction | Promise<TransactionInstruction>,
@@ -83,12 +86,14 @@ export function boilerPlateReduction(connection: Connection, defaultSigner: Sign
   ) => {
     try {
       await sendAndConfirmIx(ix, signers);
-    } catch (reason: any) {
-      if (!reason.logs || !Array.isArray(reason.logs)) {
-        throw new Error(`Logs unexpectedly not found in error: ${reason}`);
+    } catch (error: any) {
+      if (!error.logs || !Array.isArray(error.logs)) {
+        throw new Error(`Logs unexpectedly not found in error: ${error}`);
       }
 
-      const logs = (reason.logs as string[]).join("\n");
+      const logs = (error.logs as string[]).join("\n");
+      // if (!logs.includes(errorMessage))
+      //   console.log(`Couldn't find error '${errorMessage}' in logs: ${logs}`);
       expect(logs).includes(errorMessage);
       return;
     }

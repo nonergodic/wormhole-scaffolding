@@ -6,15 +6,12 @@ export const NETWORK = process.env.NETWORK?.toUpperCase() as keyof typeof CONTRA
 if (!(NETWORK in CONTRACTS))
   throw new Error("NETWORK environment variable must be one of [mainnet|testnet|devnet]");
 
-// wormhole
 export const WORMHOLE_CONTRACTS = CONTRACTS[NETWORK];
 export const CORE_BRIDGE_PID = new PublicKey(WORMHOLE_CONTRACTS.solana.core);
 export const TOKEN_BRIDGE_PID = new PublicKey(WORMHOLE_CONTRACTS.solana.token_bridge);
 
-// rpc
 export const LOCALHOST = "http://localhost:8899";
 
-// wallet
 export const PAYER_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from([
   232, 33, 124, 16, 208, 115, 111, 65, 155, 7, 36, 225, 29, 33, 239, 179, 255,
   29, 24, 173, 5, 59, 132, 255, 248, 85, 146, 109, 119, 235, 135, 96, 194, 145,
@@ -28,24 +25,16 @@ export const RELAYER_KEYPAIR = Keypair.fromSecretKey(Uint8Array.from([
   161, 61, 30, 188, 11, 120, 155, 236, 178, 241, 114, 240, 67, 3,
 ]));
 
-// foreign
+//this is the WETH mainnet address - but any address will do for local testing
 export const WETH_ADDRESS = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2";
 
-// governance
-export const GOVERNANCE_CHAIN = CHAINS.solana;
-export const GOVERNANCE_EMITTER_ADDRESS = new PublicKey(
-  "11111111111111111111111111111115"
-);
+export const GOVERNANCE_EMITTER_ADDRESS = new PublicKey("11111111111111111111111111111115");
 
-// testing
-export const FUZZ_TEST_ITERATIONS = 64;
-
-// guardian signer
 export const MOCK_GUARDIANS =
   new MockGuardians(0, ["cfb12303a19cde580bb4dd771639b0d26bc68353645571a8cff516ab2ee113a0"]);
 
-// mints
-export const MINTS_WITH_DECIMALS = new Map<number, {privateKey: Uint8Array; publicKey: PublicKey}>([
+export const MINTS_WITH_DECIMALS =
+  new Map<number, {privateKey: Uint8Array; publicKey: PublicKey}>([
   [
     8,
     {
@@ -57,7 +46,8 @@ export const MINTS_WITH_DECIMALS = new Map<number, {privateKey: Uint8Array; publ
       ]),
       publicKey: new PublicKey("GFHmBkLYsPSiWbqGD54VmmVKDs9shYVdFnHuNRu1QhTL"),
     },
-  ], [
+  ],
+  [
     9,
     {
       privateKey: Uint8Array.from([

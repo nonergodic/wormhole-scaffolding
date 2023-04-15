@@ -1,7 +1,6 @@
 import { expect, use as chaiUse } from "chai";
 import chaiAsPromised from 'chai-as-promised';
 chaiUse(chaiAsPromised);
-import { ethers } from "ethers";
 import { Connection, PublicKey, Keypair, LAMPORTS_PER_SOL } from "@solana/web3.js";
 import {
   createMint,
@@ -32,16 +31,16 @@ import {
   TOKEN_BRIDGE_PID,
   RELAYER_KEYPAIR,
   WETH_ADDRESS,
-  cartesianProd,
   boilerPlateReduction,
   createMaliciousRegisterChainInstruction,
 } from "./helpers";
-  
 
 describe(" 0: Wormhole", () => {
   const connection = new Connection(LOCALHOST, "processed");
   const payer = PAYER_KEYPAIR;
   const relayer = RELAYER_KEYPAIR;
+
+  const defaultMintAmount = 10n ** 6n;
 
   const {
     requestAirdrop,
@@ -57,7 +56,6 @@ describe(" 0: Wormhole", () => {
     return signedMsg;
   };
 
-  // for governance actions to modify programs
   const governance = new mock.GovernanceEmitter(
     GOVERNANCE_EMITTER_ADDRESS.toBuffer().toString("hex"),
     20
@@ -69,55 +67,54 @@ describe(" 0: Wormhole", () => {
 
   describe("Verify Local Validator", function() {
     it("Create SPL Tokens", async function() {
-      await Promise.all(Array.from(MINTS_WITH_DECIMALS.entries()).map(
-        async ([mintDecimals, {privateKey, publicKey}]) => {
-          const mint = await createMint(
-            connection,
-            payer,
-            payer.publicKey,
-            null, // freezeAuthority
-            mintDecimals,
-            Keypair.fromSecretKey(privateKey)
-          );
-          expect(mint).deep.equals(publicKey);
+      await Promise.all(
+        Array.from(MINTS_WITH_DECIMALS.entries()).map(
+          async ([mintDecimals, {privateKey, publicKey}]) => {
+            const mint = await createMint(
+              connection,
+              payer,
+              payer.publicKey,
+              null, // freezeAuthority
+              mintDecimals,
+              Keypair.fromSecretKey(privateKey)
+            );
+            expect(mint).deep.equals(publicKey);
 
-          const {decimals} = await getMint(connection, mint);
-          expect(decimals).equals(mintDecimals);
-        }
-      ));
+            const {decimals} = await getMint(connection, mint);
+            expect(decimals).equals(mintDecimals);
+          }
+        )
+      );
     });
-
-    const mints = Array.from(MINTS_WITH_DECIMALS.values()).map(({publicKey}) => publicKey);
 
     it("Create ATAs", async function() {
       await Promise.all(
-        cartesianProd([mints, [payer, relayer]])
-        .map(([mint, wallet]) =>
-          expect(
-            getOrCreateAssociatedTokenAccount(connection, wallet, mint, wallet.publicKey)
-          ).to.be.fulfilled
+        Array.from(MINTS_WITH_DECIMALS.values()).flatMap(({publicKey: mint}) => 
+          [payer, relayer].map(wallet =>
+            expect(
+              getOrCreateAssociatedTokenAccount(connection, wallet, mint, wallet.publicKey)
+            ).to.be.fulfilled
+          )
         )
       );
     });
 
     it("Mint to Wallet's ATAs", async function() {
-      await Promise.all(mints.map(async (mint) => {
-        const mintAmount = 69420000n * 1000000000n;
-        const destination = getAssociatedTokenAddressSync(mint, payer.publicKey);
-        await expect(
-          mintTo(
-            connection,
-            payer,
-            mint,
-            destination,
-            payer,
-            mintAmount
-          )
-        ).to.be.fulfilled;
+      await Promise.all(
+        Array.from(MINTS_WITH_DECIMALS.entries()).map(
+          async ([mintDecimals, {publicKey: mint}]) => {
+            const mintAmount = defaultMintAmount * 10n ** BigInt(mintDecimals);
+            const destination = getAssociatedTokenAddressSync(mint, payer.publicKey);
 
-        const {amount} = await getAccount(connection, destination);
-        expect(amount).equals(mintAmount);
-      }));
+            await expect(
+              mintTo(connection, payer, mint, destination, payer, mintAmount)
+            ).to.be.fulfilled;
+
+            const {amount} = await getAccount(connection, destination);
+            expect(amount).equals(mintAmount);
+          }
+        )
+      );
     });
   });
 
@@ -155,7 +152,6 @@ describe(" 0: Wormhole", () => {
   });
 
   describe("Verify Token Bridge Program", function() {
-    // foreign token bridge
     const ethereumTokenBridge = new mock.MockEthereumTokenBridge(
       WORMHOLE_CONTRACTS.ethereum.token_bridge
     );
@@ -178,13 +174,12 @@ describe(" 0: Wormhole", () => {
       expect(accounts).has.length(1);
     });
 
-    //TODO the point of these test cases still eludes me
     const registerForeignEndpoint = async (
       message: Buffer,
       isMalicious: boolean,
       expectedAccountLength: number,
     ) => {
-      const signedWormholeMessage =
+      const signedMsg =
         await expect(signAndPost(message)).to.be.fulfilled;
 
       const createIxFunc = isMalicious
@@ -196,7 +191,7 @@ describe(" 0: Wormhole", () => {
           TOKEN_BRIDGE_PID,
           CORE_BRIDGE_PID,
           payer.publicKey,
-          signedWormholeMessage,
+          signedMsg,
         )
       );
 
@@ -218,10 +213,10 @@ describe(" 0: Wormhole", () => {
     it("Register Bogus Foreign Endpoint (Chain ID == 0)", async function() {
       const message = governance.publishTokenBridgeRegisterChain(
         0, // timestamp
-        CHAINS.solana,
+        CHAINS.solana, //will be overwritten
         PublicKey.default.toString()
       );
-      message.writeUInt16BE(0, 86);
+      message.writeUInt16BE(CHAINS.unset, 86); //overwrite chainId
       await registerForeignEndpoint(message, true, 5);
     });
 
@@ -237,7 +232,6 @@ describe(" 0: Wormhole", () => {
     });
 
     it("Outbound Transfer Native", async function() {
-      const amount = BigInt(1 * LAMPORTS_PER_SOL); // explicitly sending 1 SOL
       const targetAddress = Buffer.alloc(32, "deadbeef", "hex");
       await expectTxToSucceed(
         transferNativeSol(
@@ -245,9 +239,9 @@ describe(" 0: Wormhole", () => {
           CORE_BRIDGE_PID,
           TOKEN_BRIDGE_PID,
           payer.publicKey,
-          amount,
+          BigInt(LAMPORTS_PER_SOL), //1 SOL
           targetAddress,
-          "ethereum"
+          CHAINS.ethereum
         )
       );
 
@@ -257,9 +251,11 @@ describe(" 0: Wormhole", () => {
     });
 
     it("Attest WETH from Ethereum", async function() {
-      const signedWormholeMessage = await expect(signAndPost(
-        ethereumTokenBridge.publishAttestMeta(WETH_ADDRESS, 18, "WETH", "Wrapped Ether")
-      )).to.be.fulfilled;
+      const signedMsg = await expect(
+        signAndPost(
+          ethereumTokenBridge.publishAttestMeta(WETH_ADDRESS, 18, "WETH", "Wrapped Ether")
+        )
+      ).to.be.fulfilled;
 
       await expectTxToSucceed(
         createWrappedOnSolana(
@@ -267,7 +263,7 @@ describe(" 0: Wormhole", () => {
           CORE_BRIDGE_PID,
           TOKEN_BRIDGE_PID,
           payer.publicKey,
-          signedWormholeMessage
+          signedMsg
         )
       );
     });
@@ -288,24 +284,20 @@ describe(" 0: Wormhole", () => {
     });
 
     it("Mint WETH to Wallet ATA", async function() {
-      const rawAmount = ethers.utils.parseEther("110000");
-      const mintAmount = BigInt(rawAmount.toString()) / 10n ** (18n - 8n);
+      const destination = getAssociatedTokenAddressSync(tokenBridgeWethMint, payer.publicKey);
 
-      const destination = getAssociatedTokenAddressSync(
-        tokenBridgeWethMint,
-        payer.publicKey
-      );
-
-      const signedWormholeMessage = await expect(signAndPost(
-        ethereumTokenBridge.publishTransferTokens(
-          tryNativeToHexString(WETH_ADDRESS, "ethereum"),
-          CHAINS.ethereum, // tokenChain
-          mintAmount,
-          CHAINS.solana, // recipientChain
-          destination.toBuffer().toString("hex"),
-          0n
+      const signedMsg = await expect(
+        signAndPost(
+          ethereumTokenBridge.publishTransferTokens(
+            tryNativeToHexString(WETH_ADDRESS, "ethereum"),
+            CHAINS.ethereum, // tokenChain
+            defaultMintAmount,
+            CHAINS.solana, // recipientChain
+            destination.toBuffer().toString("hex"),
+            0n //fee
+          )
         )
-      )).to.be.fulfilled;
+      ).to.be.fulfilled;
 
       await expectTxToSucceed(
         redeemOnSolana(
@@ -313,12 +305,12 @@ describe(" 0: Wormhole", () => {
           CORE_BRIDGE_PID,
           TOKEN_BRIDGE_PID,
           payer.publicKey,
-          signedWormholeMessage
+          signedMsg
         )
       );
 
       const {amount} = await getAccount(connection, destination);
-      expect(amount).equals(mintAmount);
+      expect(amount).equals(defaultMintAmount);
     });
   });
 
