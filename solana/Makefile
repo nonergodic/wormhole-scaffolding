@@ -103,8 +103,8 @@ $(foreach pname,$(programs),\
 test: unit-test integration-test
 
 unit-test: build-prerequs
-	cargo clippy -- --allow clippy::result_large_err
-	cargo test
+	cargo clippy --features $(NETWORK) -- --allow clippy::result_large_err
+	cargo test --features $(NETWORK)
 
 integration-test: build-prerequs
 	anchor test -- --features $(NETWORK)
